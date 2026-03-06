@@ -131,6 +131,9 @@ const layers = {
 
   ciiChoropleth: false,
   dayNight: false,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 await initI18n();

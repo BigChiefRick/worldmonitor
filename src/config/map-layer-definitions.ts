@@ -1,7 +1,7 @@
 import type { MapLayers } from '@/types';
 
 export type MapRenderer = 'flat' | 'globe';
-export type MapVariant = 'full' | 'tech' | 'finance' | 'happy';
+export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity';
 
 export interface LayerDefinition {
   key: keyof MapLayers;
@@ -66,6 +66,9 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   happiness:                def('happiness',                '&#128522;', 'happiness',                'World Happiness'),
   speciesRecovery:          def('speciesRecovery',          '&#128062;', 'speciesRecovery',          'Species Recovery'),
   renewableInstallations:   def('renewableInstallations',   '&#9889;',   'renewableInstallations',   'Clean Energy'),
+  miningSites:              def('miningSites',              '&#128301;', 'miningSites',              'Mining Sites'),
+  processingPlants:         def('processingPlants',         '&#127981;', 'processingPlants',         'Processing Plants'),
+  commodityPorts:           def('commodityPorts',           '&#9973;',   'commodityPorts',           'Commodity Ports'),
 };
 
 const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
@@ -93,6 +96,11 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   happy: [
     'positiveEvents', 'kindness', 'happiness',
     'speciesRecovery', 'renewableInstallations',
+  ],
+  commodity: [
+    'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
+    'minerals', 'pipelines', 'waterways', 'tradeRoutes',
+    'natural', 'weather', 'outages', 'dayNight',
   ],
 };
 

@@ -21,7 +21,7 @@ const LANG_TO_TILE_FIELD: Record<string, string> = {
   ro: 'name:ro',
   tr: 'name:tr',
   th: 'name:th',
-  // vi — not available in CARTO Streets v1 tiles
+  // vi — not available in Protomaps/OSM tiles
 };
 
 type Expression = [string, ...unknown[]];

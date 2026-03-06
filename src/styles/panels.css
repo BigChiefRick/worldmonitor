@@ -306,29 +306,29 @@
 .disp-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 6px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .disp-tab {
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
-  padding: 4px 14px;
+  padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
-  border-radius: 3px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .disp-tab:hover {
-  border-color: var(--text-faint);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .disp-tab-active {
-  background: color-mix(in srgb, var(--threat-critical) 10%, transparent);
-  border-color: var(--threat-critical);
-  color: var(--threat-critical);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .disp-table {
@@ -419,28 +419,29 @@
 .ucdp-tabs {
   display: flex;
   gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .ucdp-tab {
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
-  border-radius: 3px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .ucdp-tab:hover {
-  border-color: var(--text-faint);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .ucdp-tab-active {
-  background: color-mix(in srgb, var(--threat-critical) 10%, transparent);
-  border-color: var(--threat-critical);
-  color: var(--threat-critical);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .ucdp-tab-count {
@@ -709,30 +710,30 @@
 .giving-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 6px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
 .giving-tab {
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
-  border-radius: 3px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .giving-tab:hover {
-  border-color: var(--text-faint);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .giving-tab-active {
-  background: color-mix(in srgb, var(--semantic-positive, #44ff88) 10%, transparent);
-  border-color: var(--semantic-positive, #44ff88);
-  color: var(--semantic-positive, #44ff88);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .giving-table {

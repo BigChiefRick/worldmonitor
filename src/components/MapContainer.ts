@@ -220,6 +220,11 @@ export class MapContainer {
     this.rehydrateActiveMap();
   }
 
+  /** Reload basemap style (called when map provider changes in Settings). */
+  public reloadBasemap(): void {
+    this.deckGLMap?.reloadBasemap();
+  }
+
   /** Switch back to flat map at runtime (called from Settings). */
   public switchToFlat(): void {
     if (!this.useGlobe) return;

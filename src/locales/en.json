@@ -137,9 +137,11 @@
     "filterSources": "Filter sources...",
     "sourcesEnabled": "{{enabled}}/{{total}} enabled",
     "finance": "FINANCE",
+    "commodity": "COMMODITY",
     "toggleTheme": "Toggle dark/light mode",
     "panelDisplayCaption": "Choose which panels to show on the dashboard",
     "tabGeneral": "General",
+    "tabSettings": "Settings",
     "tabPanels": "Panels",
     "tabSources": "Sources",
     "languageLabel": "Language",
@@ -659,7 +661,8 @@
         "mideast": "MIDEAST",
         "europe": "EUROPE",
         "americas": "AMERICAS",
-        "asia": "ASIA"
+        "asia": "ASIA",
+        "space": "SPACE"
       }
     },
     "positiveNewsFeed": {
@@ -2334,5 +2337,23 @@
     "retry": "Retry",
     "refresh": "Refresh",
     "all": "All"
+  },
+  "preferences": {
+    "display": "Display",
+    "intelligence": "Intelligence",
+    "media": "Media",
+    "panels": "Panels",
+    "dataAndCommunity": "Data & Community",
+    "theme": "Theme",
+    "themeDesc": "Auto follows your system preference.",
+    "themeAuto": "Auto (follow system)",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "mapProvider": "Map Tile Provider",
+    "mapProviderDesc": "Choose where map tiles are loaded from. Auto uses self-hosted PMTiles with OpenFreeMap fallback.",
+    "mapTheme": "Map Theme",
+    "mapThemeDesc": "Visual style of the map tiles. Options vary by provider.",
+    "globePreset": "Visual Preset",
+    "globePresetDesc": "Switch between classic and enhanced globe visuals to compare."
   }
 }

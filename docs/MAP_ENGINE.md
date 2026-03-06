@@ -19,6 +19,42 @@ Two rendering engines are available, switchable at runtime via Settings or the `
 - **Background pause** — when the desktop app window loses focus or the globe panel is hidden, the WebGL render loop pauses entirely, stopping the Three.js animation loop and canceling auto-rotate. Data updates received while paused are queued and flushed in a single batch when the globe returns to view, eliminating background GPU load on laptops
 - **Beta indicator** — a pulsing cyan "BETA" badge appears when the globe is active, signaling the feature is newer than the flat map
 
+### Map Tile Providers
+
+The flat map supports multiple tile providers, selectable at runtime via **Settings → Map Tile Provider**. The selection persists in localStorage.
+
+| Provider | Description | Cost | Default |
+|----------|-------------|------|---------|
+| **OpenFreeMap** | Free community-hosted OpenStreetMap tiles. Dark and Positron styles. No API key required. | Free | Yes (when `VITE_PMTILES_URL` is unset) |
+| **CARTO** | CARTO's Dark Matter and Voyager GL styles. No API key required. | Free tier | No |
+| **PMTiles (self-hosted)** | Self-hosted vector tiles via the [PMTiles](https://protomaps.com/docs/pmtiles) format. Tiles are served as a single `.pmtiles` archive file over HTTP Range requests — the browser only downloads tiles for the current viewport (~50-200KB per pan/zoom), not the entire file. Requires `VITE_PMTILES_URL` environment variable. | Self-hosted | Yes (when `VITE_PMTILES_URL` is set) |
+| **Auto** | Tries PMTiles first, falls back to OpenFreeMap on error (2+ tile load failures or 10s timeout). Only available when `VITE_PMTILES_URL` is set. | Self-hosted | No |
+
+**OSS-friendly defaults**: When `VITE_PMTILES_URL` is not set (the default), only OpenFreeMap and CARTO appear in Settings. PMTiles and Auto options are hidden. This ensures community installations work out of the box with zero configuration and no external tile hosting costs.
+
+**Self-hosting PMTiles**: To use your own tiles:
+
+1. Download a PMTiles planet file from [Protomaps builds](https://maps.protomaps.com/builds/) or generate a regional extract with [`go-pmtiles extract`](https://github.com/protomaps/go-pmtiles)
+2. Upload to any HTTP server that supports Range requests (Cloudflare R2, S3, or a static file server)
+3. Set `VITE_PMTILES_URL=https://your-server.example/planet.pmtiles` in `.env.local`
+4. The PMTiles and Auto options will appear in Settings
+
+### Map Themes
+
+Each tile provider offers different visual themes, selectable via **Settings → Map Theme**. The theme selection is **per-provider** — switching providers remembers each provider's last-used theme. Map theme is fully independent of the app theme (Auto/Dark/Light); the app theme only affects UI chrome, while the map theme controls basemap appearance.
+
+| Provider | Available Themes | Default |
+|----------|-----------------|---------|
+| **PMTiles** | Black (deepest dark), Dark, Grayscale, Light, White | Black |
+| **OpenFreeMap** | Dark, Positron (light) | Dark |
+| **CARTO** | Dark Matter, Voyager (light), Positron (light) | Dark Matter |
+
+**Sprite mapping**: PMTiles themes `black`, `dark`, and `grayscale` use the `dark` Protomaps sprite sheet; `light` and `white` use the `light` sprite sheet.
+
+**Overlay paint adaptation**: Country highlight/hover paint colors automatically adapt to the selected map theme (not the app theme), using lower opacity on light themes for visibility.
+
+**Fallback behavior**: When using PMTiles or Auto mode, if tile loading fails (CORS errors, server downtime, 403s), the map automatically falls back to OpenFreeMap after detecting 2+ errors within 10 seconds. The fallback respects the current map theme's light/dark nature — a light PMTiles theme falls back to OpenFreeMap Positron, not Dark. A console warning is logged when fallback activates.
+
 **Flat Map (deck.gl + MapLibre GL JS)** — a WebGL-accelerated 2D map with smooth 60fps rendering and thousands of concurrent markers:
 
 - **Layer types** — `GeoJsonLayer`, `ScatterplotLayer`, `PathLayer`, `IconLayer`, `TextLayer`, `PolygonLayer`, `ArcLayer`, `HeatmapLayer` composited in a single render pass

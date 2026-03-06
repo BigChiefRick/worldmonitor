@@ -378,10 +378,10 @@ export class AirlineIntelPanel extends Panel {
         const style = document.createElement('style');
         style.id = 'airline-intel-styles';
         style.textContent = `
-      .airline-intel-tabs { display:flex;gap:2px;padding:4px 6px 0;flex-wrap:wrap;border-bottom:1px solid var(--border-color,#333); }
-      .airline-intel-tabs .tab-btn { background:none;border:none;color:var(--text-secondary,#9ca3af);cursor:pointer;font-size:12px;padding:5px 8px;border-radius:4px 4px 0 0;transition:color .15s,background .15s; }
-      .airline-intel-tabs .tab-btn:hover { color:var(--text-primary,#e5e7eb); }
-      .airline-intel-tabs .tab-btn.active { color:var(--accent,#60a5fa);border-bottom:2px solid var(--accent,#60a5fa);background:rgba(96,165,250,.08); }
+      .airline-intel-tabs { display:flex;gap:2px;padding:8px 10px 0;flex-wrap:wrap;border-bottom:1px solid var(--border); }
+      .airline-intel-tabs .tab-btn { background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-dim,#9ca3af);cursor:pointer;font-size:11px;padding:6px 10px;transition:all .15s ease;white-space:nowrap; }
+      .airline-intel-tabs .tab-btn:hover { color:var(--text); }
+      .airline-intel-tabs .tab-btn.active { color:var(--accent);border-bottom-color:var(--accent); }
       .airline-intel-content { overflow-y:auto;max-height:320px;padding:8px; }
       .ops-grid,.flights-list,.carriers-list,.tracking-list { display:flex;flex-direction:column;gap:4px; }
       .ops-row,.flight-row,.carrier-row,.track-row { display:flex;gap:8px;align-items:center;font-size:12px;padding:4px;border-radius:4px;transition:background .15s; }

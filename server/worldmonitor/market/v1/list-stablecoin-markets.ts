@@ -9,8 +9,7 @@ import type {
   ListStablecoinMarketsResponse,
   Stablecoin,
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
-import { UPSTREAM_TIMEOUT_MS, parseStringArray } from './_shared';
-import { CHROME_UA } from '../../../_shared/constants';
+import { parseStringArray, fetchCryptoMarkets } from './_shared';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'market:stablecoins:v1';
@@ -26,22 +25,6 @@ let stablecoinCache: ListStablecoinMarketsResponse | null = null;
 let stablecoinCacheTimestamp = 0;
 const STABLECOIN_CACHE_TTL = 480_000; // 8 minutes
 const SEED_FRESHNESS_MS = 45 * 60 * 1000; // 45 minutes
-
-// ========================================================================
-// Types
-// ========================================================================
-
-interface CoinGeckoStablecoinItem {
-  id: string;
-  symbol: string;
-  name: string;
-  current_price: number;
-  market_cap: number;
-  total_volume: number;
-  price_change_percentage_24h: number;
-  price_change_percentage_7d_in_currency?: number;
-  image: string;
-}
 
 // ========================================================================
 // Handler
@@ -93,16 +76,13 @@ export async function listStablecoinMarkets(
 
   try {
   const result = await cachedFetchJson<ListStablecoinMarketsResponse>(redisKey, REDIS_CACHE_TTL, async () => {
-    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coins}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
-    const resp = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
+    const coinIds = coins.split(',');
+    const data = await fetchCryptoMarkets(coinIds);
 
-    if (resp.status === 429 && stablecoinCache) return null;
-    if (!resp.ok) throw new Error(`CoinGecko HTTP ${resp.status}`);
-
-    const data = (await resp.json()) as CoinGeckoStablecoinItem[];
+    if (data.length === 0 && stablecoinCache) {
+      console.warn('[stablecoin] empty response — returning stale cache');
+      return null;
+    }
 
     const stablecoins: Stablecoin[] = data.map(coin => {
       const price = coin.current_price || 0;
@@ -115,7 +95,7 @@ export async function listStablecoinMarkets(
       return {
         id: coin.id,
         symbol: (coin.symbol || '').toUpperCase(),
-        name: coin.name,
+        name: coin.name || coin.id,
         price,
         deviation: +(deviation * 100).toFixed(3),
         pegStatus,

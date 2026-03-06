@@ -5693,10 +5693,56 @@ a.prediction-link:hover {
 
 /* Error */
 .error-message {
-  color: var(--red);
+  color: var(--text-dim);
   font-size: 10px;
   padding: 8px;
   text-align: center;
+}
+
+.panel-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 12px;
+  min-height: 100px;
+}
+
+.panel-error-icon {
+  font-size: 18px;
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+.panel-error-msg {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 180px;
+  line-height: 1.4;
+}
+
+.panel-error-retry-btn {
+  margin-top: 4px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-family: inherit;
+  color: var(--accent);
+  background: var(--overlay-light);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.panel-error-retry-btn:hover {
+  background: var(--overlay-medium, rgba(255,255,255,0.08));
+}
+
+.panel-error-retry-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .config-error-message {
@@ -7688,37 +7734,64 @@ a.prediction-link:hover {
 .economic-tabs {
   display: flex;
   gap: 2px;
-  padding: 6px 8px;
+  padding: 8px 10px 0;
   border-bottom: 1px solid var(--border);
-  background: var(--darken-heavy);
 }
 
 .economic-tab {
-  flex: 1;
-  padding: 4px 8px;
-  font-size: 10px;
-  border: none;
   background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
+  padding: 6px 10px;
+  font-size: 11px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .economic-tab:hover {
-  background: rgba(68, 255, 136, 0.1);
   color: var(--text);
 }
 
 .economic-tab.active {
-  background: rgba(68, 255, 136, 0.2);
-  color: var(--green);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .economic-content {
   padding: 8px;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* Regulation Panel Tabs */
+.regulation-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.regulation-tabs .tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.regulation-tabs .tab:hover {
+  color: var(--text);
+}
+
+.regulation-tabs .tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .economic-empty {
@@ -12578,8 +12651,7 @@ a.prediction-link:hover {
   height: 100%;
 }
 
-.tech-events-loading,
-.tech-events-error {
+.tech-events-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12589,52 +12661,32 @@ a.prediction-link:hover {
   color: var(--text-dim);
 }
 
-.tech-events-error {
-  color: var(--red);
-}
-
-.tech-events-error .retry-btn {
-  margin-top: 8px;
-  padding: 4px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 10px;
-}
-
-.tech-events-error .retry-btn:hover {
-  background: var(--border);
-}
-
 .tech-events-tabs {
   display: flex;
-  gap: 4px;
-  padding: 0 2px;
+  gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .tech-events-tabs .tab {
-  flex: 1;
-  padding: 5px 8px;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-dim);
-  font-size: 9px;
+  padding: 6px 10px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .tech-events-tabs .tab:hover {
-  background: var(--overlay-light);
   color: var(--text);
 }
 
 .tech-events-tabs .tab.active {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .tech-events-stats {
@@ -12894,8 +12946,7 @@ a.prediction-link:hover {
 }
 
 /* Service Status Panel */
-.service-status-loading,
-.service-status-error {
+.service-status-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12904,25 +12955,6 @@ a.prediction-link:hover {
   gap: 8px;
   color: var(--text-dim);
   font-size: 11px;
-}
-
-.service-status-error {
-  color: var(--red);
-}
-
-.service-status-error .retry-btn {
-  margin-top: 4px;
-  padding: 4px 10px;
-  font-size: 10px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-.service-status-error .retry-btn:hover {
-  background: var(--border);
 }
 
 .service-status-summary {
@@ -13406,14 +13438,109 @@ a.prediction-link:hover {
   border-color: rgba(68, 255, 136, 0.2);
 }
 
-.deckgl-layer-toggles .layer-toggle.limit-reached {
-  opacity: 0.35;
-  pointer-events: none;
+/* Layer performance warning dialog */
+.layer-warn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0);
+  transition: background 0.2s, backdrop-filter 0.2s;
 }
 
-.layer-toggles:not(.deckgl-layer-toggles) .layer-toggle.limit-reached {
-  opacity: 0.35;
-  pointer-events: none;
+.layer-warn-overlay.layer-warn-in {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.layer-warn-overlay.layer-warn-out {
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0);
+}
+
+.layer-warn-dialog {
+  background: var(--bg, #0a0e14);
+  border: 1px solid rgba(255, 170, 0, 0.3);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(255, 170, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.6);
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.layer-warn-in .layer-warn-dialog {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.layer-warn-out .layer-warn-dialog {
+  transform: scale(0.95);
+  opacity: 0;
+}
+
+.layer-warn-icon {
+  color: #ffaa00;
+  line-height: 1;
+}
+
+.layer-warn-text strong {
+  display: block;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: #ffaa00;
+  margin-bottom: 6px;
+}
+
+.layer-warn-text p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim, #8899aa);
+  line-height: 1.5;
+}
+
+.layer-warn-dismiss {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim, #8899aa);
+  cursor: pointer;
+  user-select: none;
+}
+
+.layer-warn-dismiss input {
+  accent-color: #ffaa00;
+  cursor: pointer;
+}
+
+.layer-warn-ok {
+  padding: 6px 28px;
+  background: rgba(255, 170, 0, 0.12);
+  border: 1px solid rgba(255, 170, 0, 0.4);
+  border-radius: 4px;
+  color: #ffaa00;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.layer-warn-ok:hover {
+  background: rgba(255, 170, 0, 0.2);
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.2);
 }
 
 /* deck.gl Legend - horizontal bar at bottom center */
@@ -14380,6 +14507,53 @@ a.prediction-link:hover {
   .unified-settings-modal .sources-toggle-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ============ Preferences Collapsible Groups ============ */
+
+.wm-pref-group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.wm-pref-group > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-primary, #e8eaed);
+  background: rgba(255, 255, 255, 0.03);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.wm-pref-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.wm-pref-group > summary::before {
+  content: '\25B8';
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  color: var(--text-faint);
+}
+
+.wm-pref-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.wm-pref-group > summary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.wm-pref-group-content {
+  padding: 4px 14px 10px;
 }
 
 /* ============ AI Flow Toggle Styles (shared) ============ */

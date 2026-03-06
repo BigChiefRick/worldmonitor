@@ -96,15 +96,7 @@ export class ServiceStatusPanel extends Panel {
     }
 
     if (this.error) {
-      replaceChildren(this.content,
-        h('div', { className: 'service-status-error' },
-          h('span', { className: 'error-text' }, this.error),
-          h('button', {
-            className: 'retry-btn',
-            onClick: () => { this.loading = true; this.render(); void this.fetchStatus(); },
-          }, t('common.retry')),
-        ),
-      );
+      this.showError(this.error, () => { this.loading = true; this.render(); void this.fetchStatus(); });
       return;
     }
 

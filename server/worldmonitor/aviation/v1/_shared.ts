@@ -215,11 +215,10 @@ export async function fetchAviationStackDelays(
 ): Promise<AviationStackResult> {
   const apiKey = process.env.AVIATIONSTACK_API;
   if (!apiKey) {
-    console.log('[Aviation] No AVIATIONSTACK_API key — skipping');
+    console.warn('[Aviation] No AVIATIONSTACK_API key — skipping');
     return { alerts: [], healthy: false };
   }
 
-  console.log(`[Aviation] Querying ${allAirports.length} airports (concurrency=${BATCH_CONCURRENCY})`);
   const alerts: AirportDelayAlert[] = [];
   let succeeded = 0, failed = 0;
   const deadline = Date.now() + 50_000;
@@ -244,7 +243,7 @@ export async function fetchAviationStackDelays(
   }
 
   const healthy = allAirports.length < 5 || failed <= succeeded;
-  console.log(`[Aviation] Done: ${succeeded} ok, ${failed} failed, ${alerts.length} alerts, healthy=${healthy}`);
+  console.warn(`[Aviation] Done: ${succeeded} ok, ${failed} failed, ${alerts.length} alerts, healthy=${healthy}`);
   if (!healthy) {
     console.warn(`[Aviation] Systemic failure: ${failed}/${failed + succeeded} airports failed`);
   }
@@ -278,11 +277,6 @@ async function fetchSingleAirport(
     }
     const flights = json?.data ?? [];
     const alert = aggregateFlights(airport, flights);
-    if (flights.length > 0) {
-      const cancelled = flights.filter(f => f.flight_status === 'cancelled').length;
-      const delayed = flights.filter(f => f.departure?.delay && f.departure.delay > 0).length;
-      console.log(`[Aviation] ${airport.iata}: ${flights.length} flights, ${cancelled} cancelled, ${delayed} delayed → ${alert ? alert.severity.replace('FLIGHT_DELAY_SEVERITY_', '') : 'normal'}`);
-    }
     return { ok: true, alert };
   } catch (err) {
     console.warn(`[Aviation] ${airport.iata}: fetch error: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -394,7 +388,7 @@ export async function fetchNotamClosures(
   const apiKey = process.env.ICAO_API_KEY;
   const result: NotamClosureResult = { closedIcaoCodes: new Set(), notamsByIcao: new Map() };
   if (!apiKey) {
-    console.log('[Aviation] NOTAM: no ICAO_API_KEY — skipping');
+    console.warn('[Aviation] NOTAM: no ICAO_API_KEY — skipping');
     return result;
   }
 
@@ -410,7 +404,6 @@ export async function fetchNotamClosures(
     if (relayBase) {
       // Route through Railway relay — avoids Vercel edge timeout / CloudFront blocking
       const relayUrl = `${relayBase}/notam?locations=${encodeURIComponent(locations)}`;
-      console.log(`[Aviation] NOTAM: fetching via relay for ${icaoCodes.length} airports`);
       const resp = await fetch(relayUrl, {
         headers: getRelayHeaders(),
         signal: AbortSignal.timeout(30_000),
@@ -423,7 +416,6 @@ export async function fetchNotamClosures(
       if (Array.isArray(data)) notams = data;
     } else {
       // Direct ICAO call (slower from Vercel, may timeout)
-      console.log(`[Aviation] NOTAM: fetching direct for ${icaoCodes.length} airports`);
       const url = `${ICAO_NOTAM_URL}?api_key=${apiKey}&format=json&locations=${locations}`;
       const resp = await fetch(url, {
         headers: { 'User-Agent': CHROME_UA },
@@ -446,8 +438,6 @@ export async function fetchNotamClosures(
     return result;
   }
 
-  console.log(`[Aviation] NOTAM: ${notams.length} raw NOTAMs received`);
-
   for (const n of notams) {
     const icao = n.itema || n.location || '';
     if (!icao || !icaoCodes.includes(icao)) continue;
@@ -467,9 +457,7 @@ export async function fetchNotamClosures(
   }
 
   if (result.closedIcaoCodes.size > 0) {
-    console.log(`[Aviation] NOTAM closures: ${[...result.closedIcaoCodes].join(', ')}`);
-  } else {
-    console.log('[Aviation] NOTAM: no closures found');
+    console.warn(`[Aviation] NOTAM closures: ${[...result.closedIcaoCodes].join(', ')}`);
   }
   return result;
 }

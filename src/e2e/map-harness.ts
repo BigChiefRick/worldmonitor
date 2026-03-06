@@ -182,6 +182,9 @@ const allLayersEnabled: MapLayers = {
   iranAttacks: false,
   ciiChoropleth: false,
   dayNight: true,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -231,6 +234,9 @@ const allLayersDisabled: MapLayers = {
   iranAttacks: false,
   ciiChoropleth: false,
   dayNight: false,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

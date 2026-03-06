@@ -149,7 +149,7 @@ export class MacroSignalsPanel extends Panel {
         this.error = null;
 
         if (this.data && this.data.unavailable && attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 20);
           await new Promise(r => setTimeout(r, 20_000));
           if (!this.element?.isConnected) return false;
           continue;
@@ -159,7 +159,7 @@ export class MacroSignalsPanel extends Panel {
         if (this.isAbortError(err)) return false;
         if (!this.element?.isConnected) return false;
         if (attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 20);
           await new Promise(r => setTimeout(r, 20_000));
           if (!this.element?.isConnected) return false;
           continue;
@@ -183,12 +183,12 @@ export class MacroSignalsPanel extends Panel {
     }
 
     if (this.error || !this.data) {
-      this.showError(this.error || t('common.noDataShort'));
+      this.showError(this.error || t('common.noDataShort'), () => void this.fetchData());
       return;
     }
 
     if (this.data.unavailable) {
-      this.showError(t('common.upstreamUnavailable'));
+      this.showError(t('common.upstreamUnavailable'), () => void this.fetchData());
       return;
     }
 

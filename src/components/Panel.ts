@@ -194,6 +194,9 @@ export class Panel {
   private readonly contentDebounceMs = 150;
   private pendingContentHtml: string | null = null;
   private contentDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private retryCallback: (() => void) | null = null;
+  private retryCountdownTimer: ReturnType<typeof setInterval> | null = null;
+  private _fetching = false;
 
   constructor(options: PanelOptions) {
     this.panelId = options.id;
@@ -261,6 +264,12 @@ export class Panel {
 
     this.element.appendChild(this.header);
     this.element.appendChild(this.content);
+
+    this.content.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest('[data-panel-retry]');
+      if (!target || this._fetching) return;
+      this.retryCallback?.();
+    });
 
     // Add resize handle
     this.resizeHandle = document.createElement('div');
@@ -619,6 +628,7 @@ export class Panel {
   }
 
   public showLoading(message = t('common.loading')): void {
+    this.clearRetryCountdown();
     replaceChildren(this.content,
       h('div', { className: 'panel-loading' },
         h('div', { className: 'panel-loading-radar' },
@@ -630,20 +640,76 @@ export class Panel {
     );
   }
 
-  public showError(message = t('common.failedToLoad')): void {
-    replaceChildren(this.content, h('div', { className: 'error-message' }, message));
+  public showError(message = t('common.failedToLoad'), onRetry?: () => void): void {
+    this.clearRetryCountdown();
+    if (onRetry !== undefined) this.retryCallback = onRetry;
+    const children: (HTMLElement | string)[] = [
+      h('div', { className: 'panel-error-icon' }, '\u2014'),
+      h('div', { className: 'panel-error-msg' }, message),
+    ];
+    if (this.retryCallback) {
+      children.push(
+        h('button', {
+          type: 'button',
+          className: 'panel-error-retry-btn',
+          'data-panel-retry': '',
+        }, t('common.retry')),
+      );
+    }
+    replaceChildren(this.content, h('div', { className: 'panel-error-state' }, ...children));
   }
 
-  public showRetrying(message = t('common.retrying')): void {
+  public showRetrying(message = t('common.retrying'), countdownSeconds?: number): void {
+    this.clearRetryCountdown();
+    const textNode = document.createTextNode(
+      countdownSeconds ? `${message} (${countdownSeconds}s)` : message,
+    );
+    const textEl = h('div', { className: 'panel-loading-text retrying' });
+    textEl.appendChild(textNode);
+
+    if (countdownSeconds && countdownSeconds > 0) {
+      let remaining = countdownSeconds;
+      this.retryCountdownTimer = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          this.clearRetryCountdown();
+          textNode.textContent = message;
+          return;
+        }
+        textNode.textContent = `${message} (${remaining}s)`;
+      }, 1000);
+    }
+
     replaceChildren(this.content,
       h('div', { className: 'panel-loading' },
         h('div', { className: 'panel-loading-radar' },
           h('div', { className: 'panel-radar-sweep' }),
           h('div', { className: 'panel-radar-dot' }),
         ),
-        h('div', { className: 'panel-loading-text retrying' }, message),
+        textEl,
       ),
     );
+  }
+
+  private clearRetryCountdown(): void {
+    if (this.retryCountdownTimer) {
+      clearInterval(this.retryCountdownTimer);
+      this.retryCountdownTimer = null;
+    }
+  }
+
+  protected setRetryCallback(fn: (() => void) | null): void {
+    this.retryCallback = fn;
+  }
+
+  protected setFetching(v: boolean): void {
+    this._fetching = v;
+    const btn = this.content.querySelector<HTMLButtonElement>('[data-panel-retry]');
+    if (btn) btn.disabled = v;
+  }
+
+  protected get isFetching(): boolean {
+    return this._fetching;
   }
 
   public showConfigError(message: string): void {
@@ -682,6 +748,7 @@ export class Panel {
   }
 
   public setContent(html: string): void {
+    this.clearRetryCountdown();
     if (this.pendingContentHtml === html || this.content.innerHTML === html) {
       return;
     }
@@ -788,6 +855,7 @@ export class Panel {
 
   public destroy(): void {
     this.abortController.abort();
+    this.clearRetryCountdown();
     if (this.colSpanReconcileRaf !== null) {
       cancelAnimationFrame(this.colSpanReconcileRaf);
       this.colSpanReconcileRaf = null;

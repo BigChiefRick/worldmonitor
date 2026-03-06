@@ -7,7 +7,7 @@ import type {
 
 import { cachedFetchJson } from '../../../_shared/redis';
 import { markNoCacheResponse } from '../../../_shared/response-headers';
-import { UPSTREAM_TIMEOUT_MS, GROQ_API_URL, GROQ_MODEL, hashString } from './_shared';
+import { UPSTREAM_TIMEOUT_MS, GROQ_API_URL, GROQ_MODEL, sha256Hex } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 
 // ========================================================================
@@ -48,7 +48,7 @@ export async function classifyEvent(
   const title = typeof req.title === 'string' ? req.title.slice(0, MAX_TITLE_LEN) : '';
   if (!title) { markNoCacheResponse(ctx.request); return { classification: undefined }; }
 
-  const cacheKey = `classify:sebuf:v1:${hashString(title.toLowerCase())}`;
+  const cacheKey = `classify:sebuf:v1:${(await sha256Hex(title.toLowerCase())).slice(0, 16)}`;
 
   let cached: { level: string; category: string; timestamp: number } | null = null;
   try {

@@ -75,7 +75,7 @@ export class StrategicRiskPanel extends Panel {
       await this.refresh();
     } catch (error) {
       console.error('[StrategicRiskPanel] Init error:', error);
-      this.showError(t('common.failedRiskOverview'));
+      this.showError(t('common.failedRiskOverview'), () => void this.refresh());
     }
   }
 

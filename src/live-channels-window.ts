@@ -71,7 +71,7 @@ function isHlsUrl(raw: string): boolean {
 }
 
 // Persist active region tab across re-renders
-let activeRegionTab = 'all';
+let activeRegionTab = 'na';
 
 function channelInitials(name: string): string {
   return name.split(/[\s-]+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase();

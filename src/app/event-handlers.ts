@@ -788,21 +788,10 @@ export class EventHandlerManager implements AppModule {
         window.location.reload();
       },
       isDesktopApp: this.ctx.isDesktopApp,
-      statusPanel: this.ctx.statusPanel,
-      isGlobeMode: () => this.ctx.map?.isGlobeMode() ?? false,
-      onMapModeChange: (useGlobe: boolean) => {
-        saveToStorage(STORAGE_KEYS.mapMode, useGlobe ? 'globe' : 'flat');
-        if (useGlobe) {
-          this.ctx.map?.switchToGlobe();
-        } else {
-          this.ctx.map?.switchToFlat();
-        }
+      onMapProviderChange: () => {
+        this.ctx.map?.reloadBasemap();
       },
     });
-
-    if (this.ctx.statusPanel) {
-      this.ctx.statusPanel.onUpdate = () => this.ctx.unifiedSettings?.refreshStatusTab();
-    }
 
     const mount = document.getElementById('unifiedSettingsMount');
     if (mount) {

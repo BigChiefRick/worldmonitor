@@ -32,9 +32,7 @@ export class ETFFlowsPanel extends Panel {
   private error: string | null = null;
   constructor() {
     super({ id: 'etf-flows', title: t('panels.etfFlows'), showCount: false });
-    // Delay initial fetch by 8s to avoid competing with stock/commodity Yahoo calls
-    // during cold start — all share a global yahooGate() rate limiter on the sidecar
-    setTimeout(() => void this.fetchData(), 8_000);
+    void this.fetchData();
   }
 
   public async fetchData(): Promise<void> {
@@ -47,16 +45,16 @@ export class ETFFlowsPanel extends Panel {
       return;
     }
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const client = new MarketServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
         this.data = await client.listEtfFlows({});
         if (!this.element?.isConnected) return;
         this.error = null;
 
-        if (this.data && this.data.etfs.length === 0 && !this.data.rateLimited && attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
+        if (this.data && this.data.etfs.length === 0 && !this.data.rateLimited && attempt < 1) {
+          this.showRetrying(undefined, 5);
+          await new Promise(r => setTimeout(r, 5_000));
           if (!this.element?.isConnected) return;
           continue;
         }
@@ -64,9 +62,9 @@ export class ETFFlowsPanel extends Panel {
       } catch (err) {
         if (this.isAbortError(err)) return;
         if (!this.element?.isConnected) return;
-        if (attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
+        if (attempt < 1) {
+          this.showRetrying(undefined, 5);
+          await new Promise(r => setTimeout(r, 5_000));
           if (!this.element?.isConnected) return;
           continue;
         }
@@ -84,7 +82,7 @@ export class ETFFlowsPanel extends Panel {
     }
 
     if (this.error || !this.data) {
-      this.showError(this.error || t('common.noDataShort'));
+      this.showError(this.error || t('common.noDataShort'), () => void this.fetchData());
       return;
     }
 

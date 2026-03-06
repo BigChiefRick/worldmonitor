@@ -101,6 +101,13 @@ export interface CoinGeckoMarketItem {
   current_price: number;
   price_change_percentage_24h: number;
   sparkline_in_7d?: { price: number[] };
+  // Extended fields (present from both CoinGecko and CoinPaprika fallback)
+  price_change_percentage_7d_in_currency?: number;
+  market_cap?: number;
+  total_volume?: number;
+  symbol?: string;
+  name?: string;
+  image?: string;
 }
 
 // ========================================================================
@@ -235,9 +242,19 @@ export async function fetchYahooQuote(
 export async function fetchCoinGeckoMarkets(
   ids: string[],
 ): Promise<CoinGeckoMarketItem[]> {
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`;
+  const apiKey = process.env.COINGECKO_API_KEY;
+  const baseUrl = apiKey
+    ? 'https://pro-api.coingecko.com/api/v3'
+    : 'https://api.coingecko.com/api/v3';
+  const url = `${baseUrl}/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'User-Agent': CHROME_UA,
+  };
+  if (apiKey) headers['x-cg-pro-api-key'] = apiKey;
+
   const resp = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+    headers,
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
   if (!resp.ok) {
@@ -250,4 +267,86 @@ export async function fetchCoinGeckoMarkets(
     throw new Error(`CoinGecko returned non-array: ${JSON.stringify(data).slice(0, 200)}`);
   }
   return data;
+}
+
+// ========================================================================
+// CoinPaprika fallback fetcher
+// ========================================================================
+
+// CoinGecko ID → CoinPaprika ID mapping
+const COINPAPRIKA_ID_MAP: Record<string, string> = {
+  bitcoin: 'btc-bitcoin',
+  ethereum: 'eth-ethereum',
+  solana: 'sol-solana',
+  ripple: 'xrp-ripple',
+  tether: 'usdt-tether',
+  'usd-coin': 'usdc-usd-coin',
+  dai: 'dai-dai',
+  'first-digital-usd': 'fdusd-first-digital-usd',
+  'ethena-usde': 'usde-ethena-usde',
+};
+
+interface CoinPaprikaTicker {
+  id: string;
+  name: string;
+  symbol: string;
+  quotes: {
+    USD: {
+      price: number;
+      volume_24h: number;
+      market_cap: number;
+      percent_change_24h: number;
+      percent_change_7d: number;
+    };
+  };
+}
+
+export async function fetchCoinPaprikaMarkets(
+  geckoIds: string[],
+): Promise<CoinGeckoMarketItem[]> {
+  const paprikaIds = geckoIds.map(id => COINPAPRIKA_ID_MAP[id]).filter(Boolean);
+  if (paprikaIds.length === 0) throw new Error('No CoinPaprika ID mapping for requested coins');
+
+  const resp = await fetch('https://api.coinpaprika.com/v1/tickers?quotes=USD', {
+    headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+  if (!resp.ok) throw new Error(`CoinPaprika HTTP ${resp.status}`);
+
+  const allTickers: CoinPaprikaTicker[] = await resp.json();
+  const paprikaSet = new Set(paprikaIds);
+  const matched = allTickers.filter(t => paprikaSet.has(t.id));
+
+  const reverseMap = new Map(Object.entries(COINPAPRIKA_ID_MAP).map(([g, p]) => [p, g]));
+
+  return matched.map(t => {
+    const q = t.quotes.USD;
+    return {
+      id: reverseMap.get(t.id) || t.id,
+      current_price: q.price,
+      price_change_percentage_24h: q.percent_change_24h,
+      price_change_percentage_7d_in_currency: q.percent_change_7d,
+      market_cap: q.market_cap,
+      total_volume: q.volume_24h,
+      symbol: t.symbol.toLowerCase(),
+      name: t.name,
+      image: '',
+      sparkline_in_7d: undefined,
+    };
+  });
+}
+
+// ========================================================================
+// Unified crypto market fetcher: CoinGecko → CoinPaprika fallback
+// ========================================================================
+
+export async function fetchCryptoMarkets(
+  ids: string[],
+): Promise<CoinGeckoMarketItem[]> {
+  try {
+    return await fetchCoinGeckoMarkets(ids);
+  } catch (err) {
+    console.warn(`[CoinGecko] Failed, falling back to CoinPaprika:`, (err as Error).message);
+    return fetchCoinPaprikaMarkets(ids);
+  }
 }

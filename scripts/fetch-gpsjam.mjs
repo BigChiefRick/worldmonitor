@@ -219,6 +219,18 @@ async function seedRedis(output) {
       console.error(`[gpsjam] Verified: ${parsed.hexes?.length} hexes in Redis (date: ${parsed.date})`);
     }
   }
+
+  // Write seed-meta for health endpoint freshness tracking
+  const metaKey = 'seed-meta:intelligence:gpsjam';
+  const meta = { fetchedAt: Date.now(), recordCount: output.hexes?.length || 0 };
+  const metaBody = JSON.stringify(['SET', metaKey, JSON.stringify(meta), 'EX', 604800]);
+  await fetch(redisUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+    body: metaBody,
+    signal: AbortSignal.timeout(5_000),
+  }).catch(() => console.error('[gpsjam] seed-meta write failed'));
+  console.error(`[gpsjam] Wrote seed-meta: ${metaKey}`);
 }
 
 // ---------------------------------------------------------------------------

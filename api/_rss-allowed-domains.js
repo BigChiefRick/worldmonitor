@@ -279,5 +279,18 @@ export default [
   "onemileatatime.com",
   "viewfromthewing.com",
   "www.aviationpros.com",
-  "www.aviationweek.com"
+  "www.aviationweek.com",
+  "www.kitco.com",
+  "www.mining.com",
+  "www.commoditytrademantra.com",
+  "oilprice.com",
+  "www.rigzone.com",
+  "www.eia.gov",
+  "www.mining-journal.com",
+  "www.northernminer.com",
+  "www.miningweekly.com",
+  "www.mining-technology.com",
+  "www.australianmining.com.au",
+  "news.goldseek.com",
+  "news.silverseek.com"
 ];

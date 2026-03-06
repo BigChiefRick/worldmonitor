@@ -119,7 +119,9 @@ export async function atomicPublish(canonicalKey, data, validateFn, ttlSeconds) 
 
   if (validateFn) {
     const valid = validateFn(data);
-    if (!valid) throw new Error('Validation failed for seed data');
+    if (!valid) {
+      return { payloadBytes: 0, skipped: true };
+    }
   }
 
   // Write to staging key
@@ -233,7 +235,15 @@ export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}
 
   try {
     const data = await withRetry(fetchFn);
-    const { payloadBytes } = await atomicPublish(canonicalKey, data, validateFn, ttlSeconds);
+    const publishResult = await atomicPublish(canonicalKey, data, validateFn, ttlSeconds);
+    if (publishResult.skipped) {
+      const durationMs = Date.now() - startMs;
+      console.log(`  SKIPPED: validation failed (empty data) — preserving existing cache`);
+      console.log(`\n=== Done (${Math.round(durationMs)}ms, no write) ===`);
+      await releaseLock(`${domain}:${resource}`, runId);
+      process.exit(0);
+    }
+    const { payloadBytes } = publishResult;
     const recordCount = Array.isArray(data) ? data.length
       : (data?.events?.length ?? data?.earthquakes?.length ?? data?.outages?.length
         ?? data?.fireDetections?.length ?? data?.anomalies?.length ?? data?.threats?.length

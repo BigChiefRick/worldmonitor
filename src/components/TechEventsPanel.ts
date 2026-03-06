@@ -45,7 +45,7 @@ export class TechEventsPanel extends Panel {
         this.error = null;
 
         if (this.events.length === 0 && attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
           if (!this.element?.isConnected) return;
           continue;
@@ -55,7 +55,7 @@ export class TechEventsPanel extends Panel {
         if (this.isAbortError(err)) return;
         if (!this.element?.isConnected) return;
         if (attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
           if (!this.element?.isConnected) return;
           continue;
@@ -80,13 +80,7 @@ export class TechEventsPanel extends Panel {
     }
 
     if (this.error) {
-      replaceChildren(this.content,
-        h('div', { className: 'tech-events-error' },
-          h('span', { className: 'error-icon' }, '⚠️'),
-          h('span', { className: 'error-text' }, this.error),
-          h('button', { className: 'retry-btn', onClick: () => this.refresh() }, t('common.retry')),
-        ),
-      );
+      this.showError(this.error, () => this.refresh());
       return;
     }
 

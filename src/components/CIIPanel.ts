@@ -144,7 +144,7 @@ export class CIIPanel extends Panel {
       this.bindShareButtons();
     } catch (error) {
       console.error('[CIIPanel] Refresh error:', error);
-      this.showError(t('common.failedCII'));
+      this.showError(t('common.failedCII'), () => void this.refresh());
     }
   }
 

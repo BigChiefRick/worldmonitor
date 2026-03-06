@@ -320,11 +320,11 @@ export class StrategicPosturePanel extends Panel {
               <span>${t('components.strategicPosture.aisVesselStream')}</span>
             </div>
           </div>
-          <button class="posture-retry-btn">↻ ${t('components.strategicPosture.retryNow')}</button>
+          <button class="posture-retry-btn" data-panel-retry>↻ ${t('components.strategicPosture.retryNow')}</button>
         </div>
       </div>
     `);
-    this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
+    this.setRetryCallback(() => this.refresh());
   }
 
   private showFetchError(): void {
@@ -340,11 +340,11 @@ export class StrategicPosturePanel extends Panel {
           <div class="posture-error-hint">
             <strong>${t('components.strategicPosture.rateLimitedTip')}</strong>
           </div>
-          <button class="posture-retry-btn">↻ ${t('components.strategicPosture.tryAgain')}</button>
+          <button class="posture-retry-btn" data-panel-retry>↻ ${t('components.strategicPosture.tryAgain')}</button>
         </div>
       </div>
     `);
-    this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
+    this.setRetryCallback(() => this.refresh());
   }
 
   private getPostureBadge(level: string): string {

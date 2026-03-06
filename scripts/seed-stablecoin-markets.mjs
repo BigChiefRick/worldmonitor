@@ -9,10 +9,10 @@ const CACHE_TTL = 3600; // 1 hour
 
 const STABLECOIN_IDS = 'tether,usd-coin,dai,first-digital-usd,ethena-usde';
 
-async function fetchWithRateLimitRetry(url, maxAttempts = 5) {
+async function fetchWithRateLimitRetry(url, maxAttempts = 5, headers = { Accept: 'application/json', 'User-Agent': CHROME_UA }) {
   for (let i = 0; i < maxAttempts; i++) {
     const resp = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      headers,
       signal: AbortSignal.timeout(15_000),
     });
     if (resp.status === 429) {
@@ -27,13 +27,66 @@ async function fetchWithRateLimitRetry(url, maxAttempts = 5) {
   throw new Error('CoinGecko rate limit exceeded after retries');
 }
 
-async function fetchStablecoinMarkets() {
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${STABLECOIN_IDS}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
-  const resp = await fetchWithRateLimitRetry(url);
+const COINPAPRIKA_ID_MAP = {
+  tether: 'usdt-tether',
+  'usd-coin': 'usdc-usd-coin',
+  dai: 'dai-dai',
+  'first-digital-usd': 'fdusd-first-digital-usd',
+  'ethena-usde': 'usde-ethena-usde',
+};
 
+async function fetchFromCoinGecko() {
+  const apiKey = process.env.COINGECKO_API_KEY;
+  const baseUrl = apiKey
+    ? 'https://pro-api.coingecko.com/api/v3'
+    : 'https://api.coingecko.com/api/v3';
+  const url = `${baseUrl}/coins/markets?vs_currency=usd&ids=${STABLECOIN_IDS}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
+  const headers = { Accept: 'application/json', 'User-Agent': CHROME_UA };
+  if (apiKey) headers['x-cg-pro-api-key'] = apiKey;
+
+  const resp = await fetchWithRateLimitRetry(url, 5, headers);
   const data = await resp.json();
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('CoinGecko returned no stablecoin data');
+  }
+  return data;
+}
+
+async function fetchFromCoinPaprika() {
+  console.log('  [CoinPaprika] Falling back to CoinPaprika...');
+  const ids = STABLECOIN_IDS.split(',');
+  const paprikaIds = new Set(ids.map((id) => COINPAPRIKA_ID_MAP[id]).filter(Boolean));
+  if (paprikaIds.size === 0) throw new Error('No CoinPaprika ID mapping for stablecoins');
+
+  const resp = await fetch('https://api.coinpaprika.com/v1/tickers?quotes=USD', {
+    headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!resp.ok) throw new Error(`CoinPaprika HTTP ${resp.status}`);
+  const allTickers = await resp.json();
+  const reverseMap = new Map(Object.entries(COINPAPRIKA_ID_MAP).map(([g, p]) => [p, g]));
+  return allTickers
+    .filter((t) => paprikaIds.has(t.id))
+    .map((t) => ({
+      id: reverseMap.get(t.id) || t.id,
+      current_price: t.quotes.USD.price,
+      price_change_percentage_24h: t.quotes.USD.percent_change_24h,
+      price_change_percentage_7d_in_currency: t.quotes.USD.percent_change_7d,
+      market_cap: t.quotes.USD.market_cap,
+      total_volume: t.quotes.USD.volume_24h,
+      symbol: t.symbol.toLowerCase(),
+      name: t.name,
+      image: '',
+    }));
+}
+
+async function fetchStablecoinMarkets() {
+  let data;
+  try {
+    data = await fetchFromCoinGecko();
+  } catch (err) {
+    console.warn(`  [CoinGecko] Failed: ${err.message}`);
+    data = await fetchFromCoinPaprika();
   }
 
   const stablecoins = data.map((coin) => {

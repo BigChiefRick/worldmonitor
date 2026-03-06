@@ -26,14 +26,20 @@ async function fetchTier(tier: string, signal: AbortSignal): Promise<void> {
 }
 
 export async function fetchBootstrapData(): Promise<void> {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), 800);
+  // Each tier gets its own abort controller so a slow response in one
+  // doesn't kill the other. Timeouts are generous — bootstrap data is
+  // critical for instant panel rendering.
+  const fastCtrl = new AbortController();
+  const slowCtrl = new AbortController();
+  const fastTimeout = setTimeout(() => fastCtrl.abort(), 3_000);
+  const slowTimeout = setTimeout(() => slowCtrl.abort(), 5_000);
   try {
     await Promise.all([
-      fetchTier('slow', ctrl.signal),
-      fetchTier('fast', ctrl.signal),
+      fetchTier('slow', slowCtrl.signal),
+      fetchTier('fast', fastCtrl.signal),
     ]);
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(fastTimeout);
+    clearTimeout(slowTimeout);
   }
 }

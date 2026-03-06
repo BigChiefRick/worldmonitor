@@ -1087,7 +1087,8 @@ async function seedMarketQuotes() {
   const ok = await upstashSet(redisKey, payload, MARKET_SEED_TTL);
   // Bootstrap-friendly fixed key — frontend hydrates from /api/bootstrap without RPC
   const ok2 = await upstashSet('market:stocks-bootstrap:v1', payload, MARKET_SEED_TTL);
-  console.log(`[Market] Seeded ${quotes.length}/${MARKET_SYMBOLS.length} quotes (redis: ${ok && ok2 ? 'OK' : 'PARTIAL'})`);
+  const ok3 = await upstashSet('seed-meta:market:stocks', { fetchedAt: Date.now(), recordCount: quotes.length }, 604800);
+  console.log(`[Market] Seeded ${quotes.length}/${MARKET_SYMBOLS.length} quotes (redis: ${ok && ok2 && ok3 ? 'OK' : 'PARTIAL'})`);
   return quotes.length;
 }
 
@@ -1114,7 +1115,8 @@ async function seedCommodityQuotes() {
   const ok2 = await upstashSet(quotesKey, quotesPayload, MARKET_SEED_TTL);
   // Bootstrap-friendly fixed key — frontend hydrates from /api/bootstrap without RPC
   const ok3 = await upstashSet('market:commodities-bootstrap:v1', quotesPayload, MARKET_SEED_TTL);
-  console.log(`[Market] Seeded ${quotes.length}/${COMMODITY_SYMBOLS.length} commodities (redis: ${ok && ok2 && ok3 ? 'OK' : 'PARTIAL'})`);
+  const ok4 = await upstashSet('seed-meta:market:commodities', { fetchedAt: Date.now(), recordCount: quotes.length }, 604800);
+  console.log(`[Market] Seeded ${quotes.length}/${COMMODITY_SYMBOLS.length} commodities (redis: ${ok && ok2 && ok3 && ok4 ? 'OK' : 'PARTIAL'})`);
   return quotes.length;
 }
 
@@ -1257,15 +1259,38 @@ async function seedEtfFlows() {
   return etfs.length;
 }
 
-// Crypto Quotes — CoinGecko free API
+// Crypto Quotes — CoinGecko → CoinPaprika fallback
 const CRYPTO_IDS = ['bitcoin', 'ethereum', 'solana', 'ripple'];
 const CRYPTO_META = { bitcoin: { name: 'Bitcoin', symbol: 'BTC' }, ethereum: { name: 'Ethereum', symbol: 'ETH' }, solana: { name: 'Solana', symbol: 'SOL' }, ripple: { name: 'XRP', symbol: 'XRP' } };
+const CRYPTO_PAPRIKA_MAP = { bitcoin: 'btc-bitcoin', ethereum: 'eth-ethereum', solana: 'sol-solana', ripple: 'xrp-ripple' };
 const CRYPTO_SEED_TTL = 3600; // 1h
 
+async function fetchCryptoCoinPaprika() {
+  const data = await cyberHttpGetJson('https://api.coinpaprika.com/v1/tickers?quotes=USD', { Accept: 'application/json' }, 15000);
+  if (!Array.isArray(data)) throw new Error('CoinPaprika returned non-array');
+  const paprikaIds = new Set(CRYPTO_IDS.map((id) => CRYPTO_PAPRIKA_MAP[id]).filter(Boolean));
+  const reverseMap = Object.fromEntries(Object.entries(CRYPTO_PAPRIKA_MAP).map(([g, p]) => [p, g]));
+  return data.filter((t) => paprikaIds.has(t.id)).map((t) => ({
+    id: reverseMap[t.id] || t.id, current_price: t.quotes.USD.price,
+    price_change_percentage_24h: t.quotes.USD.percent_change_24h,
+    sparkline_in_7d: undefined, symbol: t.symbol.toLowerCase(), name: t.name,
+  }));
+}
+
 async function seedCryptoQuotes() {
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${CRYPTO_IDS.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`;
-  const data = await cyberHttpGetJson(url, { Accept: 'application/json' }, 15000);
-  if (!Array.isArray(data) || data.length === 0) { console.warn('[Crypto] CoinGecko returned no data — skipping'); return 0; }
+  let data;
+  try {
+    const apiKey = process.env.COINGECKO_API_KEY;
+    const base = apiKey ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
+    const headers = { Accept: 'application/json' };
+    if (apiKey) headers['x-cg-pro-api-key'] = apiKey;
+    const url = `${base}/coins/markets?vs_currency=usd&ids=${CRYPTO_IDS.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`;
+    data = await cyberHttpGetJson(url, headers, 15000);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('CoinGecko returned no data');
+  } catch (err) {
+    console.warn(`[Crypto] CoinGecko failed: ${err.message} — trying CoinPaprika`);
+    try { data = await fetchCryptoCoinPaprika(); } catch (e2) { console.warn(`[Crypto] CoinPaprika also failed: ${e2.message} — skipping`); return 0; }
+  }
   const quotes = [];
   for (const id of CRYPTO_IDS) {
     const coin = data.find((c) => c.id === id);
@@ -1281,14 +1306,40 @@ async function seedCryptoQuotes() {
   return quotes.length;
 }
 
-// Stablecoin Markets — CoinGecko free API
+// Stablecoin Markets — CoinGecko → CoinPaprika fallback
 const STABLECOIN_IDS = 'tether,usd-coin,dai,first-digital-usd,ethena-usde';
+const STABLECOIN_PAPRIKA_MAP = { tether: 'usdt-tether', 'usd-coin': 'usdc-usd-coin', dai: 'dai-dai', 'first-digital-usd': 'fdusd-first-digital-usd', 'ethena-usde': 'usde-ethena-usde' };
 const STABLECOIN_SEED_TTL = 3600; // 1h
 
+async function fetchStablecoinCoinPaprika() {
+  const data = await cyberHttpGetJson('https://api.coinpaprika.com/v1/tickers?quotes=USD', { Accept: 'application/json' }, 15000);
+  if (!Array.isArray(data)) throw new Error('CoinPaprika returned non-array');
+  const ids = STABLECOIN_IDS.split(',');
+  const paprikaIds = new Set(ids.map((id) => STABLECOIN_PAPRIKA_MAP[id]).filter(Boolean));
+  const reverseMap = Object.fromEntries(Object.entries(STABLECOIN_PAPRIKA_MAP).map(([g, p]) => [p, g]));
+  return data.filter((t) => paprikaIds.has(t.id)).map((t) => ({
+    id: reverseMap[t.id] || t.id, current_price: t.quotes.USD.price,
+    price_change_percentage_24h: t.quotes.USD.percent_change_24h,
+    price_change_percentage_7d_in_currency: t.quotes.USD.percent_change_7d,
+    market_cap: t.quotes.USD.market_cap, total_volume: t.quotes.USD.volume_24h,
+    symbol: t.symbol.toLowerCase(), name: t.name, image: '',
+  }));
+}
+
 async function seedStablecoinMarkets() {
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${STABLECOIN_IDS}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
-  const data = await cyberHttpGetJson(url, { Accept: 'application/json' }, 15000);
-  if (!Array.isArray(data) || data.length === 0) { console.warn('[Stablecoin] CoinGecko returned no data — skipping'); return 0; }
+  let data;
+  try {
+    const apiKey = process.env.COINGECKO_API_KEY;
+    const base = apiKey ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
+    const headers = { Accept: 'application/json' };
+    if (apiKey) headers['x-cg-pro-api-key'] = apiKey;
+    const url = `${base}/coins/markets?vs_currency=usd&ids=${STABLECOIN_IDS}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
+    data = await cyberHttpGetJson(url, headers, 15000);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('CoinGecko returned no data');
+  } catch (err) {
+    console.warn(`[Stablecoin] CoinGecko failed: ${err.message} — trying CoinPaprika`);
+    try { data = await fetchStablecoinCoinPaprika(); } catch (e2) { console.warn(`[Stablecoin] CoinPaprika also failed: ${e2.message} — skipping`); return 0; }
+  }
   const stablecoins = data.map((coin) => {
     const price = coin.current_price || 0;
     const deviation = Math.abs(price - 1.0);
@@ -1885,16 +1936,21 @@ async function seedCyberThreats() {
 
   const combined = cyberDedupe([...feodo, ...urlhaus, ...c2intel, ...otx, ...abuseipdb]);
   const hydrated = await cyberHydrateGeo(combined);
-  const filtered = hydrated.filter((t) => cyberValidCoords(t.lat, t.lon));
+  const geoCount = hydrated.filter((t) => cyberValidCoords(t.lat, t.lon)).length;
+  console.log(`[Cyber] Geo resolved: ${geoCount}/${hydrated.length}`);
 
-  filtered.sort((a, b) => {
+  // Sort geo-resolved first, then by severity/recency
+  hydrated.sort((a, b) => {
+    const aGeo = cyberValidCoords(a.lat, a.lon) ? 0 : 1;
+    const bGeo = cyberValidCoords(b.lat, b.lon) ? 0 : 1;
+    if (aGeo !== bGeo) return aGeo - bGeo;
     const bySev = (CYBER_SEVERITY_RANK[CYBER_SEVERITY_MAP[b.severity]||'']||0) - (CYBER_SEVERITY_RANK[CYBER_SEVERITY_MAP[a.severity]||'']||0);
     return bySev !== 0 ? bySev : (b.lastSeen || b.firstSeen) - (a.lastSeen || a.firstSeen);
   });
 
-  const threats = filtered.slice(0, CYBER_MAX_CACHED).map(cyberToProto);
+  const threats = hydrated.slice(0, CYBER_MAX_CACHED).map(cyberToProto);
   if (threats.length === 0) {
-    console.warn('[Cyber] No threats with valid coordinates — skipping Redis write');
+    console.warn('[Cyber] No threats from any source — skipping Redis write');
     return 0;
   }
 
@@ -1968,8 +2024,8 @@ function classifyPositiveName(name) {
 
 function fetchGdeltGeoPositive(query) {
   return new Promise((resolve) => {
-    const params = new URLSearchParams({ query, format: 'geojson', timespan: '24h', maxrecords: '75' });
-    const req = https.get(`https://api.gdeltproject.org/api/v2/geo/geo?${params}`, {
+    const params = new URLSearchParams({ query, maxrows: '500' });
+    const req = https.get(`https://api.gdeltproject.org/api/v1/gkg_geojson?${params}`, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
       timeout: 15000,
     }, (resp) => {
@@ -1980,20 +2036,24 @@ function fetchGdeltGeoPositive(query) {
         try {
           const data = JSON.parse(body);
           const features = Array.isArray(data?.features) ? data.features : [];
-          const events = [];
-          const seen = new Set();
+          const locationMap = new Map();
           for (const f of features) {
             const name = String(f.properties?.name || '').substring(0, 200);
-            if (!name || seen.has(name)) continue;
+            if (!name) continue;
             if (name.startsWith('ERROR:') || name.includes('unknown error')) continue;
-            const count = Number(f.properties?.count) || 1;
-            if (count < 3) continue;
             const coords = f.geometry?.coordinates;
             if (!Array.isArray(coords) || coords.length < 2) continue;
             const [lon, lat] = coords;
             if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
-            seen.add(name);
-            events.push({ latitude: lat, longitude: lon, name, category: classifyPositiveName(name), count, timestamp: Date.now() });
+            const key = `${lat.toFixed(1)}:${lon.toFixed(1)}`;
+            const existing = locationMap.get(key);
+            if (existing) { existing.count++; }
+            else { locationMap.set(key, { latitude: lat, longitude: lon, name, count: 1 }); }
+          }
+          const events = [];
+          for (const [, loc] of locationMap) {
+            if (loc.count < 3) continue;
+            events.push({ latitude: loc.latitude, longitude: loc.longitude, name: loc.name, category: classifyPositiveName(loc.name), count: loc.count, timestamp: Date.now() });
           }
           resolve(events);
         } catch { resolve([]); }
@@ -2056,6 +2116,48 @@ async function startPositiveEventsSeedLoop() {
   setInterval(() => {
     seedPositiveEvents().catch((e) => console.warn('[PositiveEvents] Seed error:', e?.message || e));
   }, POSITIVE_EVENTS_INTERVAL_MS).unref?.();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Theater Posture Seed — warm-pings Vercel RPC every 10 min
+// so the strategic posture panel always has data in Redis.
+// ─────────────────────────────────────────────────────────────
+const THEATER_POSTURE_SEED_INTERVAL_MS = 600_000; // 10 min
+const THEATER_POSTURE_RPC_URL = 'https://worldmonitor.app/api/military/v1/get-theater-posture';
+
+async function seedTheaterPosture() {
+  try {
+    const resp = await fetch(THEATER_POSTURE_RPC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': CHROME_UA,
+        Origin: 'https://worldmonitor.app',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!resp.ok) {
+      console.warn(`[TheaterPosture] Seed ping failed: HTTP ${resp.status}`);
+      return;
+    }
+    const data = await resp.json();
+    const theaters = data?.theaters?.length || 0;
+    console.log(`[TheaterPosture] Seed ping OK — ${theaters} theaters`);
+  } catch (e) {
+    console.warn('[TheaterPosture] Seed ping error:', e?.message || e);
+  }
+}
+
+function startTheaterPostureSeedLoop() {
+  console.log(`[TheaterPosture] Seed loop starting (interval ${THEATER_POSTURE_SEED_INTERVAL_MS / 1000 / 60}min)`);
+  // Delay initial seed 30s to let the relay start up first (it proxies OpenSky)
+  setTimeout(() => {
+    seedTheaterPosture().catch((e) => console.warn('[TheaterPosture] Initial seed error:', e?.message || e));
+    setInterval(() => {
+      seedTheaterPosture().catch((e) => console.warn('[TheaterPosture] Seed error:', e?.message || e));
+    }, THEATER_POSTURE_SEED_INTERVAL_MS).unref?.();
+  }, 30_000);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -5382,6 +5484,7 @@ server.listen(PORT, () => {
   // (avoids burning 12 extra AbuseIPDB calls/day from duplicate relay loop)
   startCiiSeedLoop();
   startPositiveEventsSeedLoop();
+  startTheaterPostureSeedLoop();
   startGpsJamSeedLoop();
 });
 

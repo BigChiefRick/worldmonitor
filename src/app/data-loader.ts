@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import { enqueuePanelCall } from '@/app/pending-panel-data';
 import type { NewsItem, MapLayers, SocialUnrestEvent } from '@/types';
 import type { MarketData } from '@/types';
 import type { TimeRange } from '@/components';
@@ -103,19 +104,12 @@ import {
   EconomicPanel,
   TechReadinessPanel,
   UcdpEventsPanel,
-  DisplacementPanel,
-  ClimateAnomalyPanel,
-  PopulationExposurePanel,
   TradePolicyPanel,
   SupplyChainPanel,
-  SecurityAdvisoriesPanel,
-  OrefSirensPanel,
-  TelegramIntelPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
-import { GivingPanel } from '@/components';
 import { fetchProgressData } from '@/services/progress-data';
 import { fetchConservationWins } from '@/services/conservation-data';
 import { fetchRenewableEnergyData, fetchEnergyCapacity } from '@/services/renewable-energy-data';
@@ -177,6 +171,17 @@ export class DataLoaderManager implements AppModule {
   }, 120);
 
   public updateSearchIndex: () => void = () => {};
+
+  private callPanel(key: string, method: string, ...args: unknown[]): void {
+    const panel = this.ctx.panels[key];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const obj = panel as any;
+    if (obj && typeof obj[method] === 'function') {
+      obj[method](...args);
+      return;
+    }
+    enqueuePanelCall(key, method, args);
+  }
 
   private boundMarketWatchlistHandler: (() => void) | null = null;
 
@@ -359,7 +364,7 @@ export class DataLoaderManager implements AppModule {
           return;
         }
         const data = givingResult.data;
-        (this.ctx.panels['giving'] as GivingPanel)?.setData(data);
+        this.callPanel('giving', 'setData', data);
         if (data.platforms.length > 0) dataFreshness.recordUpdate('giving', data.platforms.length);
       }),
     });
@@ -1426,7 +1431,7 @@ export class DataLoaderManager implements AppModule {
           return;
         }
         const data = unhcrResult.data;
-        (this.ctx.panels['displacement'] as DisplacementPanel)?.setData(data);
+        this.callPanel('displacement', 'setData', data);
         ingestDisplacementForCII(data.countries);
         if (this.ctx.mapLayers.displacement && data.topFlows) {
           this.ctx.map?.setDisplacementFlows(data.topFlows);
@@ -1446,7 +1451,7 @@ export class DataLoaderManager implements AppModule {
           return;
         }
         const anomalies = climateResult.anomalies;
-        (this.ctx.panels['climate'] as ClimateAnomalyPanel)?.setAnomalies(anomalies);
+        this.callPanel('climate', 'setAnomalies', anomalies);
         ingestClimateForCII(anomalies);
         if (this.ctx.mapLayers.climate) {
           this.ctx.map?.setClimateAnomalies(anomalies);
@@ -1468,14 +1473,14 @@ export class DataLoaderManager implements AppModule {
     tasks.push((async () => {
       try {
         const data = await fetchOrefAlerts();
-        (this.ctx.panels['oref-sirens'] as OrefSirensPanel)?.setData(data);
+        this.callPanel('oref-sirens', 'setData', data);
         const alertCount = data.alerts?.length ?? 0;
         const historyCount24h = data.historyCount24h ?? 0;
         ingestOrefForCII(alertCount, historyCount24h);
         this.ctx.intelligenceCache.orefAlerts = { alertCount, historyCount24h };
         if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
         onOrefAlertsUpdate((update) => {
-          (this.ctx.panels['oref-sirens'] as OrefSirensPanel)?.setData(update);
+          this.callPanel('oref-sirens', 'setData', update);
           const updAlerts = update.alerts?.length ?? 0;
           const updHistory = update.historyCount24h ?? 0;
           ingestOrefForCII(updAlerts, updHistory);
@@ -1527,10 +1532,10 @@ export class DataLoaderManager implements AppModule {
       ];
       if (events.length > 0) {
         const exposures = await enrichEventsWithExposure(events);
-        (this.ctx.panels['population-exposure'] as PopulationExposurePanel)?.setExposures(exposures);
+        this.callPanel('population-exposure', 'setExposures', exposures);
         if (exposures.length > 0) dataFreshness.recordUpdate('worldpop', exposures.length);
       } else {
-        (this.ctx.panels['population-exposure'] as PopulationExposurePanel)?.setExposures([]);
+        this.callPanel('population-exposure', 'setExposures', []);
       }
     } catch (error) {
       console.error('[Intelligence] Population exposure fetch failed:', error);
@@ -2240,27 +2245,25 @@ export class DataLoaderManager implements AppModule {
       }));
 
       const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist', 'Singularity Hub', 'Human Progress', 'Greater Good (Berkeley)'];
-      this.ctx.breakthroughsPanel?.setItems(
+      this.callPanel('breakthroughs', 'setItems',
         items.filter(item => scienceSources.includes(item.source) || item.happyCategory === 'science-health')
       );
-      this.ctx.heroPanel?.setHeroStory(
+      this.callPanel('spotlight', 'setHeroStory',
         items.filter(item => item.happyCategory === 'humanity-kindness')
           .sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())[0]
       );
-      this.ctx.digestPanel?.setStories(
+      this.callPanel('digest', 'setStories',
         [...items].sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime()).slice(0, 5)
       );
-      this.ctx.positivePanel?.renderPositiveNews(items);
+      this.callPanel('positive-feed', 'renderPositiveNews', items);
     } catch (err) {
       console.warn('[App] Happy panel cache hydration failed:', err);
     }
   }
 
   private async loadHappySupplementaryAndRender(): Promise<void> {
-    if (!this.ctx.positivePanel) return;
-
     const curated = [...this.ctx.happyAllItems];
-    this.ctx.positivePanel.renderPositiveNews(curated);
+    this.callPanel('positive-feed', 'renderPositiveNews', curated);
 
     let supplementary: NewsItem[] = [];
     try {
@@ -2285,24 +2288,24 @@ export class DataLoaderManager implements AppModule {
     if (supplementary.length > 0) {
       const merged = [...curated, ...supplementary];
       merged.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
-      this.ctx.positivePanel.renderPositiveNews(merged);
+      this.callPanel('positive-feed', 'renderPositiveNews', merged);
     }
 
     const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist', 'Singularity Hub', 'Human Progress', 'Greater Good (Berkeley)'];
     const scienceItems = this.ctx.happyAllItems.filter(item =>
       scienceSources.includes(item.source) || item.happyCategory === 'science-health'
     );
-    this.ctx.breakthroughsPanel?.setItems(scienceItems);
+    this.callPanel('breakthroughs', 'setItems', scienceItems);
 
     const heroItem = this.ctx.happyAllItems
       .filter(item => item.happyCategory === 'humanity-kindness')
       .sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())[0];
-    this.ctx.heroPanel?.setHeroStory(heroItem);
+    this.callPanel('spotlight', 'setHeroStory', heroItem);
 
     const digestItems = [...this.ctx.happyAllItems]
       .sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())
       .slice(0, 5);
-    this.ctx.digestPanel?.setStories(digestItems);
+    this.callPanel('digest', 'setStories', digestItems);
 
     setPersistentCache(
       DataLoaderManager.HAPPY_ITEMS_CACHE_KEY,
@@ -2349,12 +2352,12 @@ export class DataLoaderManager implements AppModule {
 
   private async loadProgressData(): Promise<void> {
     const datasets = await fetchProgressData();
-    this.ctx.progressPanel?.setData(datasets);
+    this.callPanel('progress', 'setData', datasets);
   }
 
   private async loadSpeciesData(): Promise<void> {
     const species = await fetchConservationWins();
-    this.ctx.speciesPanel?.setData(species);
+    this.callPanel('species', 'setData', species);
     this.ctx.map?.setSpeciesRecoveryZones(species);
     if (SITE_VARIANT === 'happy' && species.length > 0) {
       checkMilestones({
@@ -2366,7 +2369,7 @@ export class DataLoaderManager implements AppModule {
 
   private async loadRenewableData(): Promise<void> {
     const data = await fetchRenewableEnergyData();
-    this.ctx.renewablePanel?.setData(data);
+    this.callPanel('renewable', 'setData', data);
     if (SITE_VARIANT === 'happy' && data?.globalPercentage) {
       checkMilestones({
         renewablePercent: data.globalPercentage,
@@ -2374,7 +2377,7 @@ export class DataLoaderManager implements AppModule {
     }
     try {
       const capacity = await fetchEnergyCapacity();
-      this.ctx.renewablePanel?.setCapacityData(capacity);
+      this.callPanel('renewable', 'setCapacityData', capacity);
     } catch {
       // EIA failure does not break the existing World Bank gauge
     }
@@ -2384,7 +2387,7 @@ export class DataLoaderManager implements AppModule {
     try {
       const result = await fetchSecurityAdvisories();
       if (result.ok) {
-        (this.ctx.panels['security-advisories'] as SecurityAdvisoriesPanel)?.setData(result.advisories);
+        this.callPanel('security-advisories', 'setData', result.advisories);
         this.ctx.intelligenceCache.advisories = result.advisories;
         ingestAdvisoriesForCII(result.advisories);
       }
@@ -2396,7 +2399,7 @@ export class DataLoaderManager implements AppModule {
   async loadTelegramIntel(): Promise<void> {
     try {
       const result = await fetchTelegramFeed();
-      (this.ctx.panels['telegram-intel'] as TelegramIntelPanel)?.setData(result);
+      this.callPanel('telegram-intel', 'setData', result);
     } catch (error) {
       console.error('[App] Telegram intel fetch failed:', error);
     }
